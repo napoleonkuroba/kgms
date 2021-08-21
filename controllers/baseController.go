@@ -71,7 +71,7 @@ func (c Controller) Login() mvc.Result {
 	}
 }
 
-func (c Controller) Prase() mvc.Result {
+func (c *Controller) Prase() mvc.Result {
 	passwd := c.Context.Params().GetString("passwd")
 	if passwd != models.User {
 		return mvc.Response{
