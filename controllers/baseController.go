@@ -229,7 +229,10 @@ func (c Controller) Search() mvc.Result {
 				}
 				line := c.Cache.FileContent[data.FileName][i]
 				lineContent := strings.ReplaceAll(line, " ", "")
-				if lineContent == ">" || lineContent == "" {
+				lineContent = strings.ReplaceAll(lineContent, ">", "")
+				lineContent = strings.ReplaceAll(lineContent, "*", "")
+				lineContent = strings.ReplaceAll(lineContent, "#", "")
+				if lineContent == "" {
 					continue
 				}
 				content = c.Cache.FileContent[data.FileName][i] + "\n" + content
@@ -242,7 +245,10 @@ func (c Controller) Search() mvc.Result {
 				}
 				line := c.Cache.FileContent[data.FileName][i]
 				lineContent := strings.ReplaceAll(line, " ", "")
-				if lineContent == ">" || lineContent == "" || len(lineContent) < 2 {
+				lineContent = strings.ReplaceAll(lineContent, ">", "")
+				lineContent = strings.ReplaceAll(lineContent, "*", "")
+				lineContent = strings.ReplaceAll(lineContent, "#", "")
+				if lineContent == "" {
 					continue
 				}
 				content += c.Cache.FileContent[data.FileName][i] + "\n"
