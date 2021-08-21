@@ -359,6 +359,7 @@ func (c Controller) Remove() mvc.Result {
 			},
 		}
 	}
+	c.Sync()
 	return mvc.Response{
 		Object: models.Response{
 			Status: models.Success,
@@ -388,4 +389,33 @@ func CreateSearchFile(datas []string) string {
 	defer file.Close()
 	content, err := ioutil.ReadAll(file)
 	return string(content)
+}
+
+func (c Controller) Sync() {
+	files := make([]models.Files, 0)
+	cache := make(map[string][]string)
+	err := c.MySQL.Find(&files)
+	if err != nil {
+		fmt.Println(err.Error())
+		return
+	}
+	path, _ := os.Getwd()
+	for _, fileInfo := range files {
+		file, err := os.Open(path + "/resources/" + fileInfo.Name + ".md")
+		if err != nil {
+			return
+		}
+		content, err := ioutil.ReadAll(file)
+		if err != nil {
+			return
+		}
+		lines := strings.Split(string(content), "\n")
+		cache[fileInfo.Name] = lines
+		file.Close()
+	}
+	cacheData := &models.Cache{
+		FileContent: cache,
+		Files:       files,
+	}
+	c.Cache = cacheData
 }
