@@ -215,9 +215,9 @@ func (c Controller) Search() mvc.Result {
 		}
 	}
 	contents := make([]string, 0)
-	havedataReg := regexp.MustCompile("[\\u4e00-\\u9fa5]+|[0-9]+|[a-zA-z]+")
+	havedataReg := regexp.MustCompile("[^<>#\\n\\s]")
 	for _, data := range datas {
-		title := "# " + data.FileName + " " + strconv.Itoa(data.Line) + " \n"
+		title := "# " + data.FileName + " " + strconv.Itoa(data.Line) + " \n "
 		content := ""
 		center := data.Line
 		if data.TagFrom == data.TagTo {
@@ -236,6 +236,7 @@ func (c Controller) Search() mvc.Result {
 				content = c.Cache.FileContent[data.FileName][i] + "\n" + content
 				length++
 			}
+			content += "\n"
 			length = 0
 			for i := center + 1; ; i++ {
 				if length == data.TagTo {
@@ -246,6 +247,7 @@ func (c Controller) Search() mvc.Result {
 				if len(lineContent) <= 0 {
 					continue
 				}
+				fmt.Println(line, len(lineContent))
 				content += c.Cache.FileContent[data.FileName][i] + "\n"
 				length++
 			}
