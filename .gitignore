@@ -6,7 +6,6 @@
 *.dll
 *.so
 *.dylib
-static/
 # Test binary, built with `go test -c`
 *.test
 .DS_Store
