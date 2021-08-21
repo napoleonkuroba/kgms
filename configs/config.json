@@ -1,0 +1,11 @@
+{
+  "app_name": "knowledge-graph-management-system",
+  "port": "18080",
+  "mode": "dev",
+  "driver": "mysql",
+  "sql_name": "root",
+  "sql_passwd": "239080",
+  "data_base": "demo",
+  "sql_host": "127.0.0.1",
+  "sql_port": "3306"
+}
