@@ -215,6 +215,7 @@ func (c Controller) Search() mvc.Result {
 		}
 	}
 	contents := make([]string, 0)
+	havedataReg := regexp.MustCompile("[\\u4e00-\\u9fa5]+|[0-9]+|[a-zA-z]+")
 	for _, data := range datas {
 		title := "# " + data.FileName + " " + strconv.Itoa(data.Line) + " \n"
 		content := ""
@@ -228,11 +229,8 @@ func (c Controller) Search() mvc.Result {
 					break
 				}
 				line := c.Cache.FileContent[data.FileName][i]
-				lineContent := strings.ReplaceAll(line, " ", "")
-				lineContent = strings.ReplaceAll(lineContent, ">", "")
-				lineContent = strings.ReplaceAll(lineContent, "*", "")
-				lineContent = strings.ReplaceAll(lineContent, "#", "")
-				if lineContent == "" {
+				lineContent := havedataReg.FindAllString(line, -1)
+				if len(lineContent) <= 0 {
 					continue
 				}
 				content = c.Cache.FileContent[data.FileName][i] + "\n" + content
@@ -244,11 +242,8 @@ func (c Controller) Search() mvc.Result {
 					break
 				}
 				line := c.Cache.FileContent[data.FileName][i]
-				lineContent := strings.ReplaceAll(line, " ", "")
-				lineContent = strings.ReplaceAll(lineContent, ">", "")
-				lineContent = strings.ReplaceAll(lineContent, "*", "")
-				lineContent = strings.ReplaceAll(lineContent, "#", "")
-				if lineContent == "" {
+				lineContent := havedataReg.FindAllString(line, -1)
+				if len(lineContent) <= 0 {
 					continue
 				}
 				content += c.Cache.FileContent[data.FileName][i] + "\n"
@@ -391,7 +386,7 @@ func CreateSearchFile(datas []string) string {
 	return string(content)
 }
 
-func (c Controller) Sync() {
+func (c *Controller) Sync() {
 	files := make([]models.Files, 0)
 	cache := make(map[string][]string)
 	err := c.MySQL.Find(&files)
