@@ -249,7 +249,7 @@ func (c Controller) Search() mvc.Result {
 				if len(lineContent) <= 0 {
 					continue
 				}
-				fmt.Println(line, len(lineContent))
+
 				content += c.Cache.FileContent[data.FileName][i] + "\n"
 				length++
 			}
