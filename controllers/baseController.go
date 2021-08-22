@@ -220,12 +220,14 @@ func (c Controller) Search() mvc.Result {
 		title := "# " + data.FileName + " " + strconv.Itoa(data.Line) + " \n "
 		content := ""
 		center := data.Line
+		keyline := c.Cache.FileContent[data.FileName][data.Line]
+		keyline = strings.ReplaceAll(keyline, key, " <font color=#DC143C>"+key+"</font> ")
 		if data.TagFrom == data.TagTo {
-			content = c.Cache.FileContent[data.FileName][data.Line]
+			content = keyline
 		} else {
 			length := 0
-			for i := center; ; i-- {
-				if length == 1+(0-data.TagFrom) {
+			for i := center - 1; ; i-- {
+				if length == 0-data.TagFrom {
 					break
 				}
 				line := c.Cache.FileContent[data.FileName][i]
@@ -236,7 +238,7 @@ func (c Controller) Search() mvc.Result {
 				content = c.Cache.FileContent[data.FileName][i] + "\n" + content
 				length++
 			}
-			content += "\n"
+			content += "\n" + keyline
 			length = 0
 			for i := center + 1; ; i++ {
 				if length == data.TagTo {
