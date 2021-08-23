@@ -260,7 +260,7 @@ func (c Controller) Search() mvc.Result {
 				content = c.Cache.FileContent[data.FileName][i] + "\n" + content
 				length++
 			}
-			content += "\n" + keyline
+			content += "\n" + keyline + " \n "
 			length = 0
 			for i := center + 1; ; i++ {
 				if length == data.TagTo {
