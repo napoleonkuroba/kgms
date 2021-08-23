@@ -95,8 +95,6 @@ func (c *Controller) Prase() mvc.Result {
 		}
 	}
 	path, _ := os.Getwd()
-	c.Context.UploadFormFiles(path+"/resources/", beforeSave)
-
 	fileName := data["filename"][0]
 	subject := data["subject"][0]
 	if fileName == "" || subject == "" {
@@ -107,6 +105,8 @@ func (c *Controller) Prase() mvc.Result {
 			},
 		}
 	}
+	c.Context.UploadFormFiles(path+"/resources/"+subject+"/", beforeSave)
+
 	subjectModel := models.Subject{Name: subject}
 	go func() {
 		c.MySQL.Get(&subjectModel)
