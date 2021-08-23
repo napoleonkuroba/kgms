@@ -8,6 +8,7 @@ import (
 	"github.com/kataras/iris/v12/sessions"
 	"io/ioutil"
 	"knowledge-graph-management-system/models"
+	"mime/multipart"
 	"os"
 	"regexp"
 	"strconv"
@@ -24,11 +25,22 @@ type Controller struct {
 func (c Controller) BeforeActivation(b mvc.BeforeActivation) {
 	b.Handle("GET", "/IsLogin", "IsLogin")
 	b.Handle("POST", "/", "Login")
-	b.Handle("GET", "/ParseFile/{passwd}/{name}/{subject}", "Prase")
+	b.Handle("POST", "/ParseFile", "Prase")
 	b.Handle("GET", "/Search/{passwd}/{subject}/{type}/{key}", "Search")
 	b.Handle("GET", "/FileList/{passwd}", "FileList")
 	b.Handle("GET", "/SubjectList/{passwd}", "SubjectList")
 	b.Handle("GET", "/RemoveFile/{passwd}/{name}", "Remove")
+}
+
+func beforeSave(ctx iris.Context, file *multipart.FileHeader) {
+	dataMap := ctx.FormValues()
+	_, ok := dataMap["filename"]
+	if !ok {
+		return
+	}
+	fileName := file.Filename
+	names := strings.Split(fileName, ".")
+	file.Filename = dataMap["filename"][0] + "." + names[len(names)-1]
 }
 
 func (c Controller) IsLogin() mvc.Result {
@@ -72,7 +84,8 @@ func (c Controller) Login() mvc.Result {
 }
 
 func (c *Controller) Prase() mvc.Result {
-	passwd := c.Context.Params().GetString("passwd")
+	data := c.Context.FormValues()
+	passwd := data["passwd"][0]
 	if passwd != models.User {
 		return mvc.Response{
 			Object: models.Response{
@@ -81,10 +94,19 @@ func (c *Controller) Prase() mvc.Result {
 			},
 		}
 	}
-
 	path, _ := os.Getwd()
-	fileName := c.Context.Params().GetString("name")
-	subject := c.Context.Params().GetString("subject")
+	c.Context.UploadFormFiles(path+"/resources/", beforeSave)
+
+	fileName := data["filename"][0]
+	subject := data["subject"][0]
+	if fileName == "" || subject == "" {
+		return mvc.Response{
+			Object: models.Response{
+				Status: models.Failure,
+				Result: models.Retry,
+			},
+		}
+	}
 	subjectModel := models.Subject{Name: subject}
 	go func() {
 		c.MySQL.Get(&subjectModel)
