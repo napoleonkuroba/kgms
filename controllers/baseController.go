@@ -97,6 +97,7 @@ func (c *Controller) Prase() mvc.Result {
 	path, _ := os.Getwd()
 	fileName := data["filename"][0]
 	subject := data["subject"][0]
+	fileName = subject + "/" + fileName
 	if fileName == "" || subject == "" {
 		return mvc.Response{
 			Object: models.Response{
