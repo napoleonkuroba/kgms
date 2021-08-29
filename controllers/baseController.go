@@ -30,6 +30,7 @@ func (c Controller) BeforeActivation(b mvc.BeforeActivation) {
 	b.Handle("GET", "/FileList/{passwd}", "FileList")
 	b.Handle("GET", "/SubjectList/{passwd}", "SubjectList")
 	b.Handle("GET", "/RemoveFile/{passwd}/{name}", "Remove")
+	b.Handle("GET", "/Find/{passwd}/{subject}/{key}/{from}/{to}", "Find")
 }
 
 func beforeSave(ctx iris.Context, file *multipart.FileHeader) {
@@ -167,6 +168,7 @@ func (c *Controller) Prase() mvc.Result {
 	}
 
 	lines := strings.Split(string(content), "\n")
+	//按标签归档
 	for i, line := range lines {
 		regParts := make([]models.LineTag, 0)
 		for i, regStr := range models.Regs {
@@ -193,6 +195,35 @@ func (c *Controller) Prase() mvc.Result {
 						Result: models.Retry,
 					},
 				}
+			}
+		}
+	}
+	//按分块归档
+	start := 0
+	end := 0
+	indexKey := ""
+	for i, line := range lines {
+		if strings.Contains(line, "/R") {
+			start = i
+			indexKey = line
+			indexKey = strings.ReplaceAll(indexKey, "#", "")
+			indexKey = strings.ReplaceAll(indexKey, " ", "")
+			indexKey = strings.ReplaceAll(indexKey, "/R", "")
+		}
+		if strings.Contains(line, "/E") {
+			end = i
+			key := models.KeyIndex{
+				FileName: fileName,
+				Line:     start,
+				Keyword:  indexKey,
+				KeyType:  models.Piece,
+				TagFrom:  start,
+				TagTo:    end - start,
+				Subject:  subject,
+			}
+			_, err = c.MySQL.Insert(&key)
+			if err != nil {
+				fmt.Println(err.Error())
 			}
 		}
 	}
@@ -244,6 +275,8 @@ func (c Controller) Search() mvc.Result {
 		content := ""
 		center := data.Line
 		keyline := c.Cache.FileContent[data.FileName][data.Line]
+		keyline = strings.ReplaceAll(keyline, "/E", "")
+		keyline = strings.ReplaceAll(keyline, "/R", "")
 		keyline = strings.ReplaceAll(keyline, key, " <font color=#DC143C>"+key+"</font> ")
 		if data.TagFrom == data.TagTo {
 			content = keyline
@@ -382,6 +415,58 @@ func (c Controller) Remove() mvc.Result {
 		}
 	}
 	c.Sync()
+	return mvc.Response{
+		Object: models.Response{
+			Status: models.Success,
+		},
+	}
+}
+
+func (c Controller) Find() mvc.Result {
+	passwd := c.Context.Params().GetString("passwd")
+	if passwd != models.User {
+		return mvc.Response{
+			Object: models.Response{
+				Status: models.Failure,
+				Result: models.NoPermission,
+			},
+		}
+	}
+	key := c.Context.Params().GetString("key")
+	subject := c.Context.Params().GetString("subject")
+	from, _ := c.Context.Params().GetInt("from")
+	to, _ := c.Context.Params().GetInt("to")
+	fileList := make([]models.Files, 0)
+	for _, file := range c.Cache.Files {
+		if file.Subject == subject {
+			fileList = append(fileList, file)
+		}
+	}
+	contents := make([]string, 0)
+	for _, file := range fileList {
+		lines := c.Cache.FileContent[file.Name]
+		for i, line := range lines {
+			title := "# " + file.Name + " " + strconv.Itoa(i) + " \n "
+			content := ""
+			content += title
+			if i+to >= len(lines) {
+				continue
+			}
+			if strings.Contains(line, key) {
+				for j := from; j <= to; j++ {
+					keyline := lines[j]
+					keyline = strings.ReplaceAll(keyline, "/E", "")
+					keyline = strings.ReplaceAll(keyline, "/R", "")
+					keyline = strings.ReplaceAll(keyline, key, " <font color=#DC143C>"+key+"</font> ")
+					content += keyline + " \n"
+				}
+				contents = append(contents, content)
+			}
+			i = i + to
+		}
+	}
+	CreateSearchFile(contents)
+	c.Context.Redirect("/resource/search.md")
 	return mvc.Response{
 		Object: models.Response{
 			Status: models.Success,

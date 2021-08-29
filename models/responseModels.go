@@ -74,6 +74,8 @@ var Regs = []string{
 	"<font color=#265459 title=(.+?)>(.+?)</font>",
 }
 
+const Piece = "pie"
+
 func RegType(index int) string {
 	switch index {
 	case 0:
