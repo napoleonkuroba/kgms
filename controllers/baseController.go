@@ -107,6 +107,21 @@ func (c *Controller) Prase() mvc.Result {
 			},
 		}
 	}
+	fileDetail := models.Files{
+		Name:    fileName,
+		Subject: subject,
+	}
+	c.MySQL.Get(&fileDetail)
+	if fileDetail.Id > 0 {
+		delete(c.Cache.FileContent, fileDetail.Name)
+		index := models.KeyIndex{
+			FileName: fileDetail.Name,
+			Subject:  subject,
+		}
+		c.MySQL.Delete(&index)
+		c.MySQL.Delete(&fileDetail)
+	}
+
 	c.Context.UploadFormFiles(path+"/resources/"+subject+"/", beforeSave)
 
 	subjectModel := models.Subject{Name: subject}

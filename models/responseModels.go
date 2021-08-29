@@ -92,7 +92,6 @@ func RegType(index int) string {
 		return "ind"
 	case 6:
 		return "tabl"
-
 	}
 	return ""
 }
