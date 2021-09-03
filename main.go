@@ -19,7 +19,7 @@ import (
 var Mysql *xorm.Engine
 var Cache *models.Cache
 
-func main(){
+func main() {
 	config := configs.InitConfig()
 	Mysql = configs.NewMySQLEngine()
 	if Mysql == nil {
@@ -38,11 +38,11 @@ func main(){
 	Sync()
 
 	//region 注册路由
-	app.HandleDir("/resource","./static")
+	app.HandleDir("/resource", "./static")
 
 	dataParty := app.Party("/") //注册信息管理控制器路由
 	data := mvc.New(dataParty)
-	data.Register(sessManager.Start, Mysql,Cache)
+	data.Register(sessManager.Start, Mysql, Cache)
 	data.Handle(new(controllers.Controller))
 	//endregion
 
@@ -64,31 +64,33 @@ func Cors(ctx iris.Context) {
 	ctx.Next()
 }
 
-func Sync(){
-	files:=make([]models.Files,0)
-	cache:=make(map[string][]string)
-	err:=Mysql.Find(&files)
-	if err!=nil{
+func Sync() {
+	files := make([]models.Files, 0)
+	cache := make(map[string][]string)
+	err := Mysql.Find(&files)
+	if err != nil {
 		fmt.Println(err.Error())
 		return
 	}
-	path,_:=os.Getwd()
-	for _,fileInfo:=range files{
-		file,err:=os.Open(path+"/resources/"+fileInfo.Name+".md")
-		if err!=nil{
+	for _, fileInfo := range files {
+		path, _ := os.Getwd()
+		path = path + "/resources/" + fileInfo.Name + ".md"
+		file, err := os.Open(path)
+		if err != nil {
+			fmt.Println(err.Error())
 			return
 		}
 		content, err := ioutil.ReadAll(file)
-		if err!=nil{
+		if err != nil {
 			return
 		}
-		lines:=strings.Split(string(content),"\n")
-		cache[fileInfo.Name]=lines
+		lines := strings.Split(string(content), "\n")
+		cache[fileInfo.Name] = lines
 		file.Close()
 	}
-	cacheData:=&models.Cache{
+	cacheData := &models.Cache{
 		FileContent: cache,
 		Files:       files,
 	}
-	Cache=cacheData
+	Cache = cacheData
 }

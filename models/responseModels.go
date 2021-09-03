@@ -117,3 +117,8 @@ type Cache struct {
 	FileContent map[string][]string
 	Files       []Files
 }
+
+type FileModel struct {
+	Subject  string `json:"subject"`
+	FileName string `json:"file_name"`
+}

@@ -24,13 +24,15 @@ type Controller struct {
 
 func (c Controller) BeforeActivation(b mvc.BeforeActivation) {
 	b.Handle("GET", "/IsLogin", "IsLogin")
-	b.Handle("POST", "/", "Login")
+	b.Handle("POST", "/Login", "Login")
 	b.Handle("POST", "/ParseFile", "Prase")
-	b.Handle("GET", "/Search/{passwd}/{subject}/{type}/{key}", "Search")
-	b.Handle("GET", "/FileList/{passwd}", "FileList")
-	b.Handle("GET", "/SubjectList/{passwd}", "SubjectList")
-	b.Handle("GET", "/RemoveFile/{passwd}/{name}", "Remove")
-	b.Handle("GET", "/Find/{passwd}/{subject}/{key}/{from}/{to}", "Find")
+	b.Handle("POST", "/Search", "Search")
+	b.Handle("GET", "/FileList", "FileList")
+	b.Handle("GET", "/SubjectList", "SubjectList")
+	b.Handle("GET", "/RemoveFile/{name}", "Remove")
+	b.Handle("GET", "/Find/{subject}/{key}/{from}/{to}", "Find")
+	b.Handle("GET", "/GetFiles/{subject}", "GetFileList")
+	b.Handle("POST", "/GetDataFile", "GetFileContent")
 }
 
 func beforeSave(ctx iris.Context, file *multipart.FileHeader) {
@@ -44,10 +46,17 @@ func beforeSave(ctx iris.Context, file *multipart.FileHeader) {
 	file.Filename = dataMap["filename"][0] + "." + names[len(names)-1]
 }
 
+func (c Controller) Authorize() bool {
+	userID := c.Session.GetString("user")
+	if userID == models.User {
+		return true
+	}
+	return false
+}
+
 func (c Controller) IsLogin() mvc.Result {
 	login := models.Failure
-	userID := c.Session.GetString(models.UserID)
-	if userID != "" {
+	if c.Authorize() {
 		login = models.Success
 	}
 	return mvc.Response{
@@ -69,7 +78,7 @@ func (c Controller) Login() mvc.Result {
 		}
 	}
 	if loginInfo.Password == models.Pass && loginInfo.UserID == models.User {
-		c.Session.Set(models.UserID, loginInfo.UserID)
+		c.Session.Set("user", loginInfo.UserID)
 		return mvc.Response{
 			Object: models.Response{
 				Status: models.Success,
@@ -86,8 +95,7 @@ func (c Controller) Login() mvc.Result {
 
 func (c *Controller) Prase() mvc.Result {
 	data := c.Context.FormValues()
-	passwd := data["passwd"][0]
-	if passwd != models.User {
+	if !c.Authorize() {
 		return mvc.Response{
 			Object: models.Response{
 				Status: models.Failure,
@@ -252,8 +260,7 @@ func (c *Controller) Prase() mvc.Result {
 }
 
 func (c Controller) Search() mvc.Result {
-	passwd := c.Context.Params().GetString("passwd")
-	if passwd != models.User {
+	if !c.Authorize() {
 		return mvc.Response{
 			Object: models.Response{
 				Status: models.Failure,
@@ -261,10 +268,20 @@ func (c Controller) Search() mvc.Result {
 			},
 		}
 	}
-
-	key := c.Context.Params().GetString("key")
-	subject := c.Context.Params().GetString("subject")
-	typeStr := c.Context.Params().GetString("type")
+	var searchinfo models.SearchInfo
+	err := c.Context.ReadJSON(&searchinfo)
+	if err != nil {
+		fmt.Println(err.Error())
+		return mvc.Response{
+			Object: models.Response{
+				Status: models.Failure,
+				Result: models.Retry,
+			},
+		}
+	}
+	key := searchinfo.SearchKey
+	subject := searchinfo.Subject
+	typeStr := searchinfo.SearchType
 	if key == "" || subject == "" || typeStr == "" {
 		return mvc.Response{
 			Object: models.Response{
@@ -274,7 +291,7 @@ func (c Controller) Search() mvc.Result {
 		}
 	}
 	datas := make([]models.KeyIndex, 0)
-	err := c.MySQL.Where("Keyword like ? and KeyType=? and Subject=?", "%"+key+"%", typeStr, subject).Find(&datas)
+	err = c.MySQL.Where("Keyword like ? and KeyType=? and Subject=?", "%"+key+"%", typeStr, subject).Find(&datas)
 	if err != nil {
 		return mvc.Response{
 			Object: models.Response{
@@ -326,9 +343,8 @@ func (c Controller) Search() mvc.Result {
 			}
 			contents = append(contents, title+content)
 		}
-		CreateSearchFile(contents)
-		c.Context.Redirect("/resource/search.md")
 	}
+	CreateSearchFile(contents)
 	return mvc.Response{
 		Object: models.Response{
 			Status: models.Success,
@@ -337,8 +353,7 @@ func (c Controller) Search() mvc.Result {
 }
 
 func (c Controller) FileList() mvc.Result {
-	passwd := c.Context.Params().GetString("passwd")
-	if passwd != models.User {
+	if !c.Authorize() {
 		return mvc.Response{
 			Object: models.Response{
 				Status: models.Failure,
@@ -352,8 +367,7 @@ func (c Controller) FileList() mvc.Result {
 }
 
 func (c Controller) SubjectList() mvc.Result {
-	passwd := c.Context.Params().GetString("passwd")
-	if passwd != models.User {
+	if !c.Authorize() {
 		return mvc.Response{
 			Object: models.Response{
 				Status: models.Failure,
@@ -377,8 +391,7 @@ func (c Controller) SubjectList() mvc.Result {
 }
 
 func (c Controller) Remove() mvc.Result {
-	passwd := c.Context.Params().GetString("passwd")
-	if passwd != models.User {
+	if !c.Authorize() {
 		return mvc.Response{
 			Object: models.Response{
 				Status: models.Failure,
@@ -438,8 +451,7 @@ func (c Controller) Remove() mvc.Result {
 }
 
 func (c Controller) Find() mvc.Result {
-	passwd := c.Context.Params().GetString("passwd")
-	if passwd != models.User {
+	if !c.Authorize() {
 		return mvc.Response{
 			Object: models.Response{
 				Status: models.Failure,
@@ -540,4 +552,78 @@ func (c *Controller) Sync() {
 		Files:       files,
 	}
 	c.Cache = cacheData
+}
+
+func (c Controller) GetFileList() mvc.Result {
+	if !c.Authorize() {
+		return mvc.Response{
+			Object: models.Response{
+				Status: models.Failure,
+				Result: models.NoPermission,
+			},
+		}
+	}
+	subject := c.Context.Params().GetString("subject")
+	files := make([]models.Files, 0)
+	err := c.MySQL.Where("Subject=?", subject).Find(&files)
+	if err != nil {
+		fmt.Println(err.Error())
+		return mvc.Response{
+			Object: models.Response{
+				Status: models.Failure,
+				Result: models.Retry,
+			},
+		}
+	}
+	strs := make([]string, 0)
+	for _, file := range files {
+		data := strings.Split(file.Name, "/")
+		if len(data) <= 0 {
+			continue
+		}
+		strs = append(strs, data[len(data)-1])
+	}
+	return mvc.Response{
+		Object: strs,
+	}
+}
+
+func (c Controller) GetFileContent() mvc.Result {
+	if !c.Authorize() {
+		return mvc.Response{
+			Object: models.Response{
+				Status: models.Failure,
+				Result: models.NoPermission,
+			},
+		}
+	}
+	var fileModel models.FileModel
+	err := c.Context.ReadJSON(&fileModel)
+	if err != nil {
+		return mvc.Response{
+			Object: models.Response{
+				Status: models.Failure,
+				Result: models.NoPermission,
+			},
+		}
+	}
+	subject := fileModel.Subject
+	fileName := fileModel.FileName
+	fileName = subject + "/" + fileName
+	_, ok := c.Cache.FileContent[fileName]
+	if !ok {
+		return mvc.Response{
+			Object: models.Response{
+				Status: models.Failure,
+				Result: models.Retry,
+			},
+		}
+	}
+	content := ""
+	for _, data := range c.Cache.FileContent[fileName] {
+		content += data + " \n"
+	}
+	return mvc.Response{
+		Object: content,
+	}
 }
